@@ -10,10 +10,16 @@
 """
 
 import os
+import sys
 import warnings
 import pyedna.ezdna as dna
-from unittest.mock import Mock
-from ctypes import cdll, byref, create_string_buffer
+
+if sys.version_info[0] < 3:
+    from mock import Mock
+else:
+    from unittest.mock import Mock
+
+from ctypes import cdll, windll, byref, create_string_buffer
 from ctypes import c_char_p, c_double, c_short, c_ushort, c_long, c_int
 
 
@@ -35,12 +41,20 @@ def _mock_edna():
 # This code should execute at the beginning of the module import, because
 # all of the functions in this module require the dna_dll library to be
 # loaded. See "LoadDll" if not in default location
-default_location = "C:\\Program Files (x86)\\eDNA\\EzDnaApi64.dll"
+is_win64 = sys.maxsize > 2**32
+
+if is_win64:
+    default_location = "C:\\Program Files (x86)\\eDNA\\EzDnaApi64.dll"
+else:
+    default_location = "C:\\Program Files (x86)\\eDNA\\EzDnaApi32.dll"
 if os.path.isfile(default_location):
-    dnaserv_dll = cdll.LoadLibrary(default_location)
+    if is_win64:
+        dnaserv_dll = cdll.LoadLibrary(default_location)
+    else:
+        dnaserv_dll = windll.LoadLibrary(default_location)
 else:
     warnings.warn("ERROR- no eDNA dll detected at " +
-                  "C:\\Program Files (x86)\\eDNA\\EzDnaApi64.dll" +
+                  default_location +
                   " . Please manually load dll using the LoadDll function. " +
                   "Mocking dll, but all functions will fail until " +
                   "dll is manually loaded...")
@@ -57,7 +71,10 @@ def LoadDll(location):
     """
     if os.path.isfile(location):
         global dnaserv_dll
-        dnaserv_dll = cdll.LoadLibrary(location)
+        if is_win64:
+            dnaserv_dll = cdll.LoadLibrary(location)
+        else:
+            dnaserv_dll = windll.LoadLibrary(location)
     else:
         raise Exception("ERROR- file does not exist at " + location)
 
